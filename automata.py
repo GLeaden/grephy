@@ -16,7 +16,7 @@ class DFA():
         if state in self.valid_states:
           self.accept_states.add(state)
         else:
-          print "accept state is not contained in valid_states!"
+          print ("accept state is not contained in valid_states!")
 
     def add_transition(self, begin_state, end_state, symbol):
             """Adds a new transition function to the transitions dictionary.

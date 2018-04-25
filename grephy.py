@@ -1,15 +1,17 @@
 import argparse
 
-"""TODO:
-create main function with argument parsing capabilities
-"""
+LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+NUMBERS = '0123456789'
 
 def main():
     args = parse_args()
     alphabet = learn_alphabet(args.input_file)
     for i in alphabet:
-        print i,
-        print ord(i)
+        print (i,ord(i))
+    postfix = convert_postfix(args.RegEx)
+    for i in postfix:
+        print (i, end="")
+    print ( )
 
 def parse_args():
     parser = argparse.ArgumentParser(description='search regex pattern in file.')
@@ -35,6 +37,33 @@ def learn_alphabet(input_file):
             for c in i:
                 alphabet.add(c)
     return alphabet
+
+def convert_postfix(infix_pattern):
+    """Utilizes Dikstras shunting yard algorithim to convert infix regex to postfix
+
+            Keyword Arguments:
+            infix_pattern -- regex pattern with EXPLICIT concatenations (abc = a.b.c)
+            """
+    tempstack = []
+    postfix = []
+    precidence = {'(':0, '|':1, '.':2, '*':3, '+':3}
+    for i in infix_pattern:
+        if i.isalpha():
+            postfix.append(i)
+        elif i == '(':
+            tempstack.append(i)
+        elif i == ')':
+            top = tempstack.pop()
+            while top != '(':
+                postfix.append(top)
+                top = tempstack.pop()
+        else:
+            while (tempstack) and (precidence[tempstack[-1]] >= precidence[i]):
+                postfix.append(tempstack.pop())
+            tempstack.append(i)
+    while tempstack:
+        postfix.append(tempstack.pop())
+    return postfix
 
 if __name__ == "__main__":
     main()
