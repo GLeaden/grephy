@@ -6,9 +6,10 @@ NUMBERS = '0123456789'
 def main():
     args = parse_args()
     alphabet = learn_alphabet(args.input_file)
-    for i in alphabet:
-        print (i,ord(i))
-    postfix = convert_postfix(args.RegEx)
+    converted_regex = explicit_concat(args.RegEx)
+    postfix = convert_postfix(converted_regex)
+
+    ## testing. . .
     for i in postfix:
         print (i, end="")
     print ( )
@@ -38,6 +39,25 @@ def learn_alphabet(input_file):
                 alphabet.add(c)
     return alphabet
 
+def explicit_concat(regex_pattern):
+    """Takes a RegEx pattern ex. "abc" and returns a pattern with '.' between the previously implied concatinations ex. "a.b.c"
+
+            Keyword Arguments:
+            regex_pattern -- RegEx pattern to analyze
+            """
+    result = []
+    for i in regex_pattern:
+        if result:
+            if i.isalpha() and result[-1].isalpha():
+                result.append('.')
+                result.append(i)
+            else:
+                result.append(i)
+        else:
+            result.append(i)
+    return result
+        
+
 def convert_postfix(infix_pattern):
     """Utilizes Dikstras shunting yard algorithim to convert infix regex to postfix
 
@@ -63,7 +83,7 @@ def convert_postfix(infix_pattern):
             tempstack.append(i)
     while tempstack:
         postfix.append(tempstack.pop())
-    return postfix
+    return postfix  
 
 if __name__ == "__main__":
     main()
