@@ -1,3 +1,4 @@
+from graphviz import Digraph
 def post_to_NFA(postfix_pattern):
     ''' Thank you Russ Cox of https://swtch.com/~rsc/regexp/regexp1.html fame for teaching me how Thompson's Construction works '''
     class state():
@@ -154,9 +155,40 @@ class NFA(DFA):
                 self.transitions[begin_state][end_state] = symbols
         else:
             self.transitions[begin_state] = {end_state: symbols}
+    
+def pretty_print_nfa(nfa, outfile):
+    i = 0
+    queue = []
+    state = nfa
+    queue.append(state)
+    known_states = {}
+    known_states[state] = 's'+str(i)
+    NFA_DOT = Digraph(comment = "NFA", graph_attr={'rankdir' : 'LR'}, node_attr={'shape' : 'circle'})
+
+
+    while queue:
+        state = queue.pop()
+        if state.out is not None and state.out not in known_states:
+            i = i + 1
+            queue.append(state.out)
+            known_states[state.out] = 's'+str(i)
+        if state.out1 is not None and state.out1 not in known_states:
+            i = i + 1
+            queue.append(state.out1)
+            known_states[state.out1] = 's'+str(i)
+        if state.c is -2:
+            NFA_DOT.node(known_states[state], shape = 'doublecircle')
+        elif state.c is not -1:
+            NFA_DOT.node(known_states[state])
+            NFA_DOT.edge(known_states[state], known_states[state.out], state.c)
+        elif state.c is -1:
+            NFA_DOT.edge(known_states[state], known_states[state.out], '~e~')
+            NFA_DOT.edge(known_states[state], known_states[state.out1], '~e~')
+    print(NFA_DOT.source)
+    NFA_DOT.render("test", view=True)
 
 def re2post(expression):
-    '''Heavily influcenced by Ken Thompson's work on re -> nfa''''
+    '''Heavily influcenced by Ken Thompson's work on re -> nfa'''
     tempstack = []
     atomic_chars = 0
     pipes = 0
