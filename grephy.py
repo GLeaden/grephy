@@ -1,4 +1,7 @@
 import argparse
+from automata import post_to_NFA, epsilonclosure, learn_alphabet, re2post
+from graphviz import Digraph
+
 
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 NUMBERS = '0123456789'
@@ -6,13 +9,61 @@ NUMBERS = '0123456789'
 def main():
     args = parse_args()
     alphabet = learn_alphabet(args.input_file)
-    converted_regex = explicit_concat(args.RegEx)
-    postfix = convert_postfix(converted_regex)
+    postfix = re2post(args.RegEx)
+    # converted_regex = explicit_concat(args.RegEx)
+    # postfix = convert_postfix(converted_regex)
+    nfa = post_to_NFA(postfix)
+    print (postfix)
+    print (nfa.c)
+    print (nfa.out.c)
+    print (nfa.out.out.c)
 
-    ## testing. . .
-    for i in postfix:
-        print (i, end="")
-    print ( )
+    
+    NFA_DOT = Digraph(comment = "NFA", graph_attr={'rankdir' : 'LR'}, node_attr={'shape' : 'circle'})
+    
+
+
+
+    queue = []
+    visited = set()
+    i = 0
+    state = nfa
+    queue.append(state)
+    known_states = {}
+    visited = set()
+
+    while queue:
+        state = queue.pop()
+        print (state.c)        
+        known_states[state] = 's'+str(i)
+        i = i + 1
+        if state.c is -2:
+            NFA_DOT.node(known_states[state], shape = 'doublecircle')
+        else:
+            NFA_DOT.node(known_states[state])
+        if state.out is not None and state.out not in known_states:
+            queue.append(state.out)
+            known_states[state.out] = 's'+str(i)
+            i = i + 1
+            if state.c is -1:
+                NFA_DOT.edge(known_states[state], known_states[state.out], '~e~')
+                NFA_DOT.edge(known_states[state], known_states.get(state.out1, 's'+str(i)), '~e~')
+            else:
+                NFA_DOT.edge(known_states[state],known_states[state.out], state.c)
+                i = i - 1
+        elif state.out1 is not None and state.out1 not in known_states:
+            queue.append(state.out1)
+            known_states[state.out1] = 's'+str(i)
+            i = i + 1
+            if state.c is -1:
+                NFA_DOT.edge(known_states[state], known_states.get(state.out, 's'+str(i)), state.out.c)
+                NFA_DOT.edge(known_states[state], known_states[state.out1], '~e~')
+            else:
+                NFA_DOT.edge(known_states[state],known_states[state.out1], state.c)
+                i = i - 1
+
+    print(NFA_DOT.source)
+    NFA_DOT.render("test", view=True)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='search regex pattern in file.')
@@ -27,63 +78,6 @@ def parse_args():
                         help="enable DFA output to specified file")
     args = parser.parse_args()
     return args
-
-def learn_alphabet(input_file):
-    alphabet = set()
-    with input_file as file:
-        line = file.readlines()
-        for i in line:
-            i = i.replace("\n", "")
-            i = i.replace("\r", "")
-            for c in i:
-                alphabet.add(c)
-    return alphabet
-
-def explicit_concat(regex_pattern):
-    """Takes a RegEx pattern ex. "abc" and returns a pattern with '.' between the previously implied concatinations ex. "a.b.c"
-
-            Keyword Arguments:
-            regex_pattern -- RegEx pattern to analyze
-            """
-    result = []
-    for i in regex_pattern:
-        if result:
-            if i.isalpha() and result[-1].isalpha():
-                result.append('.')
-                result.append(i)
-            else:
-                result.append(i)
-        else:
-            result.append(i)
-    return result
-        
-
-def convert_postfix(infix_pattern):
-    """Utilizes Dikstras shunting yard algorithim to convert infix regex to postfix
-
-            Keyword Arguments:
-            infix_pattern -- regex pattern with EXPLICIT concatenations (abc = a.b.c)
-            """
-    tempstack = []
-    postfix = []
-    precidence = {'(':0, '|':1, '.':2, '*':3, '+':3}
-    for i in infix_pattern:
-        if i.isalpha():
-            postfix.append(i)
-        elif i == '(':
-            tempstack.append(i)
-        elif i == ')':
-            top = tempstack.pop()
-            while top != '(':
-                postfix.append(top)
-                top = tempstack.pop()
-        else:
-            while (tempstack) and (precidence[tempstack[-1]] >= precidence[i]):
-                postfix.append(tempstack.pop())
-            tempstack.append(i)
-    while tempstack:
-        postfix.append(tempstack.pop())
-    return postfix  
 
 if __name__ == "__main__":
     main()
