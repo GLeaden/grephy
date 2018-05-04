@@ -1,10 +1,6 @@
 import argparse
 from automata import *
 
-
-LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-NUMBERS = '0123456789'
-
 def main():
     args = parse_args()
     alphabet = learn_alphabet(args.input_file)
