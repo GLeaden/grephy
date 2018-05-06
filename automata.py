@@ -199,7 +199,7 @@ def pretty_print_DFA(dfa, outfile):
     file = open(outfile, "w")
     file.write(DFA_DOT.source)
     file.close()
-    DFA_DOT.render("dtest", view=True)
+    DFA_DOT.render(outfile, view=True)
     
 def pretty_print_NFA(nfa, outfile):
     ''' 
@@ -238,7 +238,7 @@ def pretty_print_NFA(nfa, outfile):
     file = open(outfile, "w")
     file.write(NFA_DOT.source)
     file.close()
-    NFA_DOT.render("test", view=True)
+    NFA_DOT.render(outfile, view=True)
 
 def re_to_post(expression, alphabet):
     '''
