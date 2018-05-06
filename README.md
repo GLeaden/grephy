@@ -2,7 +2,7 @@
 Formal Languages and Computability -- CMPT 440L
 
 ## What it Does
-Grephy is a project created for my Formal Languages and Computability class. It is a light, homemade verison of grep. The only recognizable RegEx operators are: `( ) * +`. The `+` sign is not used as RegEx uses it (one or more) is used in a formal lanugages context of alternation (or).
+Grephy is a project created for my Formal Languages and Computability class. It is a light, homemade verison of grep. The only recognizable RegEx operators are: `( ) * +`. The `+` sign is not used as RegEx uses it (one or more) is used in a formal lanugages context of alternation (or). This program assumes whole line anchors `^` and `$` wrap the regular expression.
 
 This program makes use of Thompons's Construciton / Algorithim to convert from regex -> postfix regex -> NFA.
 
