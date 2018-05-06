@@ -1,6 +1,10 @@
 from graphviz import Digraph
 def post_to_NFA(postfix_pattern):
-    ''' Thank you Russ Cox of https://swtch.com/~rsc/regexp/regexp1.html fame for teaching me how Thompson's Construction works '''
+    ''' 
+    Utilizes Thompson's Construction/Algorithim
+    converts a postfix regex with explicit concatenations (ab -> a.b)
+    to an NFA state with 'out' pointers to other NFA states 
+    '''
     class state():
         def __init__(self, c):
             self.c = c
@@ -13,6 +17,7 @@ def post_to_NFA(postfix_pattern):
             self.out = incomplete_transitions
     
     def patch(incomplete_transitions, out):
+        # Combine an incomplete transition with specified out state
         for state in incomplete_transitions:
             if state.c == -1:
                 state.out1 = out
@@ -24,6 +29,7 @@ def post_to_NFA(postfix_pattern):
         nfa_fragments.append(nfa_fragment(s, [s]))
 
     def catenation(nfa_fragments):
+        # Combine the two most recent NFA fragments
         e2 = nfa_fragments.pop()
         e1 = nfa_fragments.pop()
         patch(e1.out, e2.start)
@@ -31,6 +37,7 @@ def post_to_NFA(postfix_pattern):
         nfa_fragments.append(e1)
 
     def alternation(nfa_fragments):
+        # Create an incomplete transition as one of the output
         e2 = nfa_fragments.pop()
         e1 = nfa_fragments.pop()
         s = state(-1)
@@ -41,6 +48,8 @@ def post_to_NFA(postfix_pattern):
         nfa_fragments.append(e1)
     
     def zero_or_more(nfa_fragments):
+        # Create a loopback on the previous fragment, and split 
+        # with an incomplete transition
         e = nfa_fragments.pop()
         s = state(-1)
         s.out = e.start
@@ -67,101 +76,138 @@ def post_to_NFA(postfix_pattern):
     return state(-2)
 
 def learn_alphabet(input_file):
+    ''' 
+    Scans the input file and compiles a set of all unique characters
+    sans line endings.
+    '''
     alphabet = set()
-    operators = '+()*'
-    with input_file as file:
-        line = file.readlines()
-        for i in line:
-            i = i.replace("\n", "")
-            i = i.replace("\r", "")
-            for c in i:
-                alphabet.add(c)
-            for o in operators:
-                alphabet.add(o)
+    file = open(input_file,"r")
+    line = file.readlines()
+    for i in line:
+        i = i.replace("\n", "")
+        i = i.replace("\r", "")
+        for c in i:
+            alphabet.add(c)
+    file.close()
     return alphabet
 
-def NFA_to_DFA(nfa):
+def NFA_to_DFA(nfa, alphabet):
+    ''' 
+    Converts a given NFA to a DFA using subset construction.
+    '''
     class dfa_state():
-        def __init__(self, states):
-            self.states = states  #Subset Construction (set of nfa states that this state represents)
-            self.transitions = {} #Dictionary of [char]:[next state] 
-            self.end_state = False
-    
+        def __init__(self, states, accept=False):
+            self.states = states  # Subset Construction (set of nfa_states that this state represents)
+            self.transitions = {} # Dictionary of [char]:[next state] 
+            self.accept = accept    
+
     class dfa():
         def __init__(self):
-            self.Q = set()
-            self.start = None
+            self.Q = set() # Set of dfa_states that comprise the DFA
+            self.start = None # dfa_state that started it all...
+
+        def move(self, char, states):
+            ''' 
+            Takes a dfa_state and character and returns set of all 
+            possible nfa_states reachable with 1 transition of that character from that state.
+            '''
+            result = set()
+            for state in states:
+                if state.c == char:
+                    result.add(state.out)
+            return result
 
         def get_dfa_state(self, nfa_states):
-
-            if not self.start:
-                result = dfa_state(nfa_states)
-                self.start = result
-                self.Q.add(result)
-                for state in nfa_states:
-                    if state.c is -1:
-                        self.get_dfa_state(set(state.out,state.out1))
-                    elif state.c is -2:
-                        result.end_state = True
-                    else:
-                        result.transitions[state.c] = self.get_dfa_state(set([state.out]))
-                return result
-
-            for state in self.Q:
-                if state.states == nfa_states:
-                    return state
-
-            result = dfa_state(nfa_states)
-            self.Q.add(result)
-            for state in nfa_states:
+            ''' 
+            Performs ε-closure on each nfa state given. 
+            Returns 1 dfa_state that represents all nfa_states 
+            reachable with ε-transitions.
+            '''
+            tovisit = set()
+            accept = False
+            for state in nfa_states.copy():
                 if state.c is -1:
-                    self.get_dfa_state(set([state.out,state.out1]))
-                elif state.c is -2:
-                    result.end_state = True
-                else:
-                    result.transitions[state.c] = self.get_dfa_state(set([state.out]))
-                    print ("transition " + str(result) + " to " + str(result.transitions[state.c]) + str(len(nfa_states)))
+                    tovisit.add(state.out)
+                    tovisit.add(state.out1)
+                    nfa_states.add(state)
+                while tovisit:
+                    current = tovisit.pop()
+                    if current.c is -1:
+                        tovisit.add(current.out)
+                        tovisit.add(current.out1)
+                    else:
+                        nfa_states.add(current)
+            for dstate in self.Q:
+                if dstate.states == nfa_states:
+                    return dstate
+            # The finish states of the DFA are those which contain 
+            # any of the finish states of the NFA.
+            for state in nfa_states:
+                if state.c == -2:
+                    accept = True
+            result = dfa_state(nfa_states,accept)
             return result
         
     dfa = dfa()
     queue = []
-    state = nfa
-    queue.append(state)
-    visited = set()
+    # Create the start state of the DFA by taking the 
+    # ε-closure of the start state of the NFA.
+    new_dfa_state = dfa.get_dfa_state(set([nfa]))
+    queue.append(new_dfa_state)
+    dfa.Q.add(new_dfa_state)
+    dfa.start = new_dfa_state
+    # Each time we generate a new DFA state, we must apply step 2 to it. 
+    # The process is complete when applying step 2 does not make new states.
     while queue:
-        state = queue.pop()
-        if state.out is not None and state.out not in visited:
-            queue.append(state.out)
-            visited.add(state.out)
-        if state.out1 is not None and state.out1 not in visited:
-            queue.append(state.out1)
-            visited.add(state.out1)
-        if state.c is -1:
-            dfa.get_dfa_state(set([state.out,state.out1]))
-        else:
-            dfa.get_dfa_state(set([state]))
+        current_state = queue.pop()
+        # For each possible input symbol:
+        #     Apply move to the newly-created state and the input symbol; 
+        #     this will return a set of states.
+        #     Apply the ε-closure to this set of states, possibly resulting in a new set.
+        for char in alphabet:
+            next_nfa_states = dfa.move(char, current_state.states)
+            if next_nfa_states:
+                new_dfa_state = dfa.get_dfa_state(next_nfa_states)
+                current_state.transitions[char] = new_dfa_state
+                if new_dfa_state not in dfa.Q:
+                    queue.append(new_dfa_state)
+                    dfa.Q.add(new_dfa_state)
     return dfa
 
-def compute_DFA(dfa):
-    pass
-
 def pretty_print_DFA(dfa, outfile):
+    ''' 
+    Takes a dfa and creates a directed graph of transitions between states.
+    Accepting state is dileniated with a doublecircle.
+    Starting state is ALWAYS s0. (I could not find a 
+    reliable way to have an arrow from nothing)
+    '''
     DFA_DOT = Digraph(comment = "DFA", graph_attr={'rankdir' : 'LR'}, node_attr={'shape' : 'circle'})
-    DFA_DOT.node(str(dfa.start), 's0', shape = 'square')
     i = 1
-    for state in dfa.Q:
-        if state.end_state is True:
-            DFA_DOT.node(str(state), 's'+str(i), shape = 'doublecircle')
+    for dstate in dfa.Q:
+        if dstate.accept is True:
+            DFA_DOT.node(str(dstate), 's'+str(i), shape = 'doublecircle')
+            i = i + 1
+        elif dstate is dfa.start:
+            DFA_DOT.node(str(dfa.start), 's0')
         else:
-            DFA_DOT.node(str(state), 's'+str(i))
-        i = i + 1
-        if state.transitions:
-            for char in state.transitions:
-                DFA_DOT.edge(str(state), str(state.transitions[char]), char)
-    print(DFA_DOT.source)
+            DFA_DOT.node(str(dstate), 's'+str(i))
+            i = i + 1
+        if dstate.transitions:
+            for char in dstate.transitions:
+                DFA_DOT.edge(str(dstate), str(dstate.transitions[char]), char)
+
+    file = open(outfile, "w")
+    file.write(DFA_DOT.source)
+    file.close()
     DFA_DOT.render("dtest", view=True)
     
 def pretty_print_NFA(nfa, outfile):
+    ''' 
+    Takes an nfa and creates a directed graph of transitions between states.
+    Accepting state is dileniated with a doublecircle.
+    Starting state is ALWAYS s0. (I could not find a 
+    reliable way to have an arrow from nothing)
+    '''
     i = 0
     queue = []
     state = nfa
@@ -189,20 +235,29 @@ def pretty_print_NFA(nfa, outfile):
         elif state.c is -1:
             NFA_DOT.edge(known_states[state], known_states[state.out], 'ε')
             NFA_DOT.edge(known_states[state], known_states[state.out1], 'ε')
-    print(NFA_DOT.source)
+    file = open(outfile, "w")
+    file.write(NFA_DOT.source)
+    file.close()
     NFA_DOT.render("test", view=True)
 
 def re_to_post(expression, alphabet):
     '''
     Converts Regex to PostFix Expression, adding '.' characters to explicity
     represent concatenation. 
+
+    REGEX ACCEPTED:
+    *  ----  Zero or More
+    +  ----  Alternation (OR)
+    () ----  Parens (grouping)
+    _________________________________
+    .  ----  Concatenation (explicit)
     '''
     tempstack = []
     atomic_chars = 0
     alternation = 0
     result = []
     for char in expression:
-        if char not in alphabet:
+        if char not in alphabet and char not in '+()*':
             print ("ERROR: character " + char + " not found in alphabet of input file.")
             exit()
         if char == '(':
@@ -239,3 +294,18 @@ def re_to_post(expression, alphabet):
         result.append('+'*alternation)
 
     return result
+
+def compute_DFA(dfa, infile):
+    f = open(infile,"r")
+    lines = f.read().splitlines()
+    f.close()
+    for line in lines:
+        current_state = dfa.start
+        for char in line:
+            if char in current_state.transitions:
+                current_state = current_state.transitions[char]
+            else:
+                current_state = None
+                break
+        if current_state and current_state.accept == True:
+            print(line)
