@@ -18,7 +18,7 @@ Grephy has the capability to 'pretty print' the resulting NFA and DFA by both ou
 2. Clone the repo and navigate to the proper directory.  
 `$ cd grephy`
 3. Run the program! An example call is shown below:  
-`$ grephy [-n NFA-FILE] [-d DFA-FILE] REGEX FILE`
+`$ python3 grephy [-n NFA-FILE] [-d DFA-FILE] REGEX FILE`
 4. You can use `$ grephy -h` to list some useful help information.
 
 
